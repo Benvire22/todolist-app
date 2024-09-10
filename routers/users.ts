@@ -8,6 +8,12 @@ const usersRouter = express.Router();
 
 usersRouter.post('/', async (req, res, next) => {
   try {
+    const existingUser = await User.findOne({ username: req.body.username });
+
+    if (existingUser) {
+      return res.status(409).send({ error: 'This username already exists!' });
+    }
+
     const user = new User({
       username: req.body.username,
       password: req.body.password,
@@ -18,7 +24,7 @@ usersRouter.post('/', async (req, res, next) => {
     return res.send(user);
   } catch (e) {
     if (e instanceof mongoose.Error.ValidationError) {
-      return res.status(400).send(e);
+      return res.status(401).send(e);
     }
 
     return next(e);
@@ -27,6 +33,10 @@ usersRouter.post('/', async (req, res, next) => {
 
 usersRouter.post('/sessions', async (req, res, next) => {
   try {
+    if (!req.body.username || !req.body.password) {
+      return res.status(404).send({ error: 'username or password are required!' });
+    }
+
     const user = await User.findOne({ username: req.body.username });
 
     if (!user) {
@@ -45,7 +55,7 @@ usersRouter.post('/sessions', async (req, res, next) => {
     return res.send(user);
   } catch (e) {
     if (e instanceof mongoose.Error.ValidationError) {
-      return res.status(400).send(e);
+      return res.status(401).send(e);
     }
 
     return next(e);
