@@ -25,7 +25,7 @@ const TaskSchema = new Schema<TaskFieldsMutation>({
   status: {
     type: String,
     required: true,
-  }
+  },
 });
 
 const Task = mongoose.model('Task', TaskSchema);

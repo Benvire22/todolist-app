@@ -11,7 +11,7 @@ tasksRouter.get('/', auth, async (req: RequestWithUser, res, next) => {
       return res.status(403).send('User not found!');
     }
 
-    const tasks = await Task.find({user: req.user});
+    const tasks = await Task.find({ user: req.user }).populate('user', 'username');
 
     return res.send(tasks);
   } catch (e) {
@@ -25,15 +25,15 @@ tasksRouter.post('/', auth, async (req: RequestWithUser, res, next) => {
       return res.status(400).send('User not found!');
     }
 
-    if (!req.body.title || !req.body.status) {
-      return res.status(404).send('Title or status are required!');
+    if (!req.body.title) {
+      return res.status(404).send({ error: 'Title is required!' });
     }
 
     const task = new Task({
-      user: req.user,
+      user: req.user._id,
       title: req.body.title,
-      description: req.body.description,
-      status: req.body.status,
+      description: req.body.description || null,
+      status: 'new',
     });
 
     await task.save();
@@ -50,22 +50,33 @@ tasksRouter.post('/', auth, async (req: RequestWithUser, res, next) => {
 tasksRouter.put('/:id', auth, async (req: RequestWithUser, res, next) => {
   try {
     if (!req.user) {
-      return res.status(400).send('User not found!');
+      return res.status(400).send({ error: 'User not found!' });
     }
 
-    if (!req.body.title || !req.body.status) {
-      return res.status(404).send('Title or status are required!');
+    if (!req.body.title) {
+      return res.status(404).send({ error: 'Title are required!' });
     }
 
-    const task = await Task.findById(req.params.id).where('user').equals(req.user);
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid task ID' });
+    }
+
+    const task = await Task.findById(req.params.id)
+      .where('user')
+      .equals(req.user);
 
     if (!task) {
-      return res.status(403).send({error: 'Task is not found!'});
+      return res.status(403).send({ error: 'Task is not found!' });
     }
+
+    const status = req.body.status;
 
     task.title = req.body.title;
     task.description = req.body.description;
-    task.status = req.body.status;
+
+    if (status === 'in_progress' || status === 'complete') {
+      task.status = req.body.status;
+    }
 
     await task.save();
     return res.send(task);
@@ -81,20 +92,29 @@ tasksRouter.put('/:id', auth, async (req: RequestWithUser, res, next) => {
 tasksRouter.delete('/:id', auth, async (req: RequestWithUser, res, next) => {
   try {
     if (!req.user) {
-      return res.status(400).send('User not found!');
+      return res.status(400).send({ error: 'User not found!' });
     }
 
-    const deletedTask = await Task.findByIdAndDelete(req.params.id).where('user').equals(req.user);
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).json({ message: 'Invalid task ID' });
+    }
+
+    const deletedTask = await Task.findByIdAndDelete(req.params.id)
+      .where('user')
+      .equals(req.user);
 
     if (!deletedTask) {
-      return res.status(403).send('Task not found!');
+      return res.status(403).send({ error: 'Task not found!' });
     }
 
-    return res.send({taskId: deletedTask._id});
+    return res.send({ taskId: deletedTask._id });
   } catch (e) {
+    if (e instanceof mongoose.Error.ValidationError) {
+      return res.status(403).send(e);
+    }
+
     return next(e);
   }
 });
-
 
 export default tasksRouter;
