@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-export interface UserField {
+export interface UserFields {
   username: string;
   password: string;
   token: string;

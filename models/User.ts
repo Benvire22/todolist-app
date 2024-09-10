@@ -1,12 +1,12 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
-import { UserField } from '../types';
+import { UserFields } from '../types';
 
 const SALT_WORK_FACTOR = 10;
 
 const Schema = mongoose.Schema;
 
-const UserSchema = new Schema<UserField>({
+const UserSchema = new Schema<UserFields>({
   username: {
     type: String,
     required: true,
