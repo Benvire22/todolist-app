@@ -8,7 +8,7 @@ const tasksRouter = express.Router();
 tasksRouter.get('/', auth, async (req: RequestWithUser, res, next) => {
   try {
     if (!req.user) {
-      return res.status(403).send('User not found!');
+      return res.status(400).send('User not found!');
     }
 
     const tasks = await Task.find({ user: req.user }).populate('user', 'username');
@@ -57,32 +57,34 @@ tasksRouter.put('/:id', auth, async (req: RequestWithUser, res, next) => {
       return res.status(404).send({ error: 'Title are required!' });
     }
 
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ message: 'Invalid task ID' });
+    const taskId = req.params.id;
+
+    if (!mongoose.Types.ObjectId.isValid(taskId)) {
+      return res.status(404).json({ message: 'Invalid task ID' });
     }
 
-    const task = await Task.findById(req.params.id)
-      .where('user')
-      .equals(req.user);
+    const taskStatus = req.body.status;
+
+    const updateTask = {
+      title: req.body.title,
+      description: req.body.description || null,
+    };
+
+    const task = await Task.findByIdAndUpdate(taskId, updateTask, { new: true }).where('user').equals(req.user);
 
     if (!task) {
-      return res.status(403).send({ error: 'Task is not found!' });
+      return res.status(403).send({ error: 'Task not found!' });
     }
 
-    const status = req.body.status;
-
-    task.title = req.body.title;
-    task.description = req.body.description;
-
-    if (status === 'in_progress' || status === 'complete') {
-      task.status = req.body.status;
+    if (taskStatus === 'in_progress' || taskStatus === 'complete') {
+      task.status = taskStatus;
     }
 
     await task.save();
     return res.send(task);
   } catch (e) {
     if (e instanceof mongoose.Error.ValidationError) {
-      return res.status(403).send(e);
+      return res.status(401).send(e);
     }
 
     return next(e);
@@ -99,9 +101,7 @@ tasksRouter.delete('/:id', auth, async (req: RequestWithUser, res, next) => {
       return res.status(404).json({ message: 'Invalid task ID' });
     }
 
-    const deletedTask = await Task.findByIdAndDelete(req.params.id)
-      .where('user')
-      .equals(req.user);
+    const deletedTask = await Task.findByIdAndDelete(req.params.id).where('user').equals(req.user);
 
     if (!deletedTask) {
       return res.status(403).send({ error: 'Task not found!' });
@@ -110,7 +110,7 @@ tasksRouter.delete('/:id', auth, async (req: RequestWithUser, res, next) => {
     return res.send({ taskId: deletedTask._id });
   } catch (e) {
     if (e instanceof mongoose.Error.ValidationError) {
-      return res.status(403).send(e);
+      return res.status(401).send(e);
     }
 
     return next(e);
